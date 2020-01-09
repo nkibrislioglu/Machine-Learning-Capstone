@@ -1,0 +1,138 @@
+#importing libraries
+import requests # library to handle requests
+
+# Matplotlib and associated plotting modules
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+
+# import k-means from clustering stage
+from sklearn.cluster import KMeans
+
+#!conda install -c conda-forge folium=0.5.0 --yes # uncomment this line if you haven't completed the Foursquare API lab
+import folium # map rendering library
+
+print('Libraries imported.')
+##I deleted my credential for privacy
+LIMIT = 100
+radius = 500
+CLIENT_ID = 'xxxxxxxx' # your Foursquare ID
+CLIENT_SECRET = 'xxxxxxx' # your Foursquare Secret
+VERSION = '20180605' # Foursquare API version
+
+##function that gets the nearby venues
+#Note: this function is in the course content. I am using their function here
+def getNearbyVenues(names, latitudes, longitudes, radius=500):
+    
+    venues_list=[]
+    for name, lat, lng in zip(names, latitudes, longitudes):
+        print(name)
+            
+        # create the API request URL
+        url = 'https://api.foursquare.com/v2/venues/explore?&client_id={}&client_secret={}&v={}&ll={},{}&radius={}&limit={}'.format(
+            CLIENT_ID, 
+            CLIENT_SECRET, 
+            VERSION, 
+            lat, 
+            lng, 
+            radius, 
+            LIMIT)
+            
+        # make the GET request
+        results = requests.get(url).json()["response"]['groups'][0]['items']
+        
+        # return only relevant information for each nearby venue
+        venues_list.append([(
+            name, 
+            lat, 
+            lng, 
+            v['venue']['name'], 
+            v['venue']['location']['lat'], 
+            v['venue']['location']['lng'],  
+            v['venue']['categories'][0]['name']) for v in results])
+
+    nearby_venues = pd.DataFrame([item for venue_list in venues_list for item in venue_list])
+    nearby_venues.columns = ['Neighborhood', 
+                  'Neighborhood Latitude', 
+                  'Neighborhood Longitude', 
+                  'Venue', 
+                  'Venue Latitude', 
+                  'Venue Longitude', 
+                  'Venue Category']
+    
+    return(nearby_venues)
+
+
+### DfMerged dataframe is created by webscraping code
+Toronto=DfMerged
+
+Toronto_venues = getNearbyVenues(names=Toronto['Neighborhood'],
+                                   latitudes=Toronto['Latitude'],
+                                   longitudes=Toronto['Longitude']
+                                  )
+Toronto_venues.head()
+
+
+### creating dummy variables for each venue category
+#this is for clustering
+##Note: Some content of this part is taken from the course content
+# one hot encoding
+Toronto_onehot = pd.get_dummies(Toronto_venues[['Venue Category']], prefix="", prefix_sep="")
+
+# add neighborhood column back to dataframe
+
+Toronto_onehot['Neighborhood'] = Toronto_venues['Neighborhood'] 
+# move neighborhood column to the first column
+fixed_columns = [Toronto_onehot.columns[-1]] + list(Toronto_onehot.columns[:-1])
+Toronto_onehot = Toronto_onehot[fixed_columns]
+Toronto_onehot.head()
+
+##Grouping by neighborhood
+Toronto_grouped = Toronto_onehot.groupby('Neighborhood').mean().reset_index()
+
+###k means clustering
+# set number of clusters
+kclusters = 3
+
+Toronto_clustering = Toronto_grouped.drop('Neighborhood', 1)
+
+# run k-means clustering
+kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(Toronto_clustering)
+
+# check cluster labels generated for each row in the dataframe
+kmeans.labels_ 
+
+##inserting group values
+Toronto_grouped.insert(0, 'Cluster Labels', kmeans.labels_)
+
+##merging cluster label with original data
+Toronto_merged=pd.merge(Toronto,Toronto_grouped[["Cluster Labels","Neighborhood"]], on="Neighborhood",how="left")
+Toronto_merged
+
+###Creating the map
+
+#create a map
+
+map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
+
+import numpy as np
+
+# set color scheme for the clusters
+x = np.arange(kclusters)
+ys = [i + x + (i*x)**2 for i in range(kclusters)]
+colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+rainbow = [colors.rgb2hex(i) for i in colors_array]
+
+# add markers to the map
+markers_colors = []
+for lat, lon, poi, cluster in zip(Toronto_merged['Latitude'], Toronto_merged['Longitude'], Toronto_merged['Neighborhood'], Toronto_merged['Cluster Labels']):
+    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
+    folium.CircleMarker(
+        [lat, lon],
+        radius=5,
+        popup=label,
+        color=rainbow[cluster+1],
+        fill=True,
+        fill_color=rainbow[cluster-1],
+        fill_opacity=0.7).add_to(map_clusters)
+       
+map_clusters
