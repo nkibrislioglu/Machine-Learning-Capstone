@@ -155,20 +155,19 @@ df= df2[["PostalCode","Borough","Neigborhood"]]
 df.head()
 
 
-# In[ ]:
+#Combining latitude and longitude data with neighborhood data
+#This part includes
+#Getting latitude and longitude data
+#Combining this data with previous data frame
 
+LLdata=pd.read_csv("https://cocl.us/Geospatial_data")
 
+LLdata.head()
+#remaning columns
+LLdata.columns= ["PostalCode","Latitude","Longitude"]
 
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
+#merging the data frames
+DfMerged= pd.merge(df,LLdata, on= "PostalCode", how= "left")
 
 
 
