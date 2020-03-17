@@ -103,8 +103,8 @@ import random
 #Foursquare credentials
 LIMIT = 50
 radius = 500
-CLIENT_ID = 'SLSX3CCXO3X2E0AGUV54D1BSSPNBCIFZD4RUCOGK53QZWVFL' # your Foursquare ID
-CLIENT_SECRET = 'CHBJYULAVFGWPV2MJLTC44D5GO0TFLF3RYN5HZ034QYTMWZY' # your Foursquare Secret
+CLIENT_ID = 'xxxxx' # your Foursquare ID
+CLIENT_SECRET = 'xxxx' # your Foursquare Secret
 VERSION = '20180605' # Foursquare API version
 
 
